@@ -100,7 +100,16 @@ startBtn.addEventListener("click", () => {
     );
 
     const data = await response.json();
-    translatedDiv.textContent = data.responseData.translatedText;
+const translated = data.responseData.translatedText;
+translatedDiv.textContent = translated;
+
+// Text-to-Speech
+const utter = new SpeechSynthesisUtterance(translated);
+utter.lang = direction === "en-bg" ? "bg-BG" : "en-US";
+utter.rate = 0.9;
+speechSynthesis.cancel();
+speechSynthesis.speak(utter);
+
   };
 
   recognition.onerror = (e) => {
