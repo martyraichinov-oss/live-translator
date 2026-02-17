@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Live EN ↔ BG Translator</title>
+
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h2 {
+      text-align: center;
+    }
+
+    select, button {
+      width: 100%;
+      padding: 15px;
+      margin-top: 15px;
+      font-size: 18px;
+      border-radius: 12px;
+      border: none;
+    }
+
+    select {
+      background: #020617;
+      color: #e5e7eb;
+    }
+
+    button {
+      background: #2563eb;
+      color: white;
+    }
+
+    .box {
+      margin-top: 20px;
+      padding: 15px;
+      background: #020617;
+      border-radius: 12px;
+      min-height: 60px;
+      font-size: 18px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h2>🎧 Live EN ↔ BG Translator</h2>
+
+  <select id="direction">
+    <option value="en-bg">English → Bulgarian</option>
+    <option value="bg-en">Bulgarian → English</option>
+  </select>
+
+  <button id="startBtn">🎤 Tap to Speak</button>
+
+  <div class="box">
+    <strong>You said:</strong>
+    <div id="sourceText"></div>
+  </div>
+
+  <div class="box">
+    <strong>Translation:</strong>
+    <div id="translatedText"></div>
+  </div>
+
+<script>
+const SpeechRecognition =
+  window.SpeechRecognition || window.webkitSpeechRecognition;
+
+const startBtn = document.getElementById("startBtn");
+const sourceDiv = document.getElementById("sourceText");
+const translatedDiv = document.getElementById("translatedText");
+const directionSelect = document.getElementById("direction");
+
+startBtn.addEventListener("click", () => {
+  const recognition = new SpeechRecognition();
+
+  const direction = directionSelect.value;
+  const fromLang = direction === "en-bg" ? "en-US" : "bg-BG";
+  const langPair = direction === "en-bg" ? "en|bg" : "bg|en";
+
+  recognition.lang = fromLang;
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  recognition.onresult = async (event) => {
+    const text = event.results[0][0].transcript;
+    sourceDiv.textContent = text;
+
+    const response = await fetch(
+      "https://api.mymemory.translated.net/get?q=" +
+      encodeURIComponent(text) +
+      "&langpair=" + langPair
+    );
+
+    const data = await response.json();
+    translatedDiv.textContent = data.responseData.translatedText;
+  };
+
+  recognition.onerror = (e) => {
+    alert("Speech error: " + e.error);
+  };
+
+  recognition.start();
+});
+</script>
+
+</body>
+</html>
