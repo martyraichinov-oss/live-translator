@@ -1,43 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Live Translator</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Translator</title>
 
-  <style>
-    body {
-      font-family: system-ui, sans-serif;
-      background: #0f172a;
-      color: #e5e7eb;
-      margin: 0;
-      padding: 20px;
-    }
-    h2 { text-align: center; }
-    select, button {
-      width: 100%;
-      padding: 16px;
-      margin-top: 16px;
-      font-size: 18px;
-      border-radius: 14px;
-      border: none;
-    }
-    select { background: #020617; color: #e5e7eb; }
-    button {
-      background: #2563eb;
-      color: white;
-      font-weight: bold;
-    }
-    button.holding { background: #1e40af; }
-    .box {
-      margin-top: 20px;
-      padding: 15px;
-      background: #020617;
-      border-radius: 12px;
-      min-height: 60px;
-      font-size: 18px;
-    }
-  </style>
+<style>
+body {
+  font-family: system-ui, sans-serif;
+  background:#0f172a;
+  color:#e5e7eb;
+  padding:20px;
+}
+button, select {
+  width:100%;
+  padding:16px;
+  font-size:18px;
+  border-radius:14px;
+  border:none;
+  margin-top:16px;
+}
+button {
+  background:#2563eb;
+  color:white;
+  font-weight:bold;
+}
+.box {
+  background:#020617;
+  padding:15px;
+  margin-top:20px;
+  border-radius:12px;
+  min-height:60px;
+}
+</style>
 </head>
 
 <body>
@@ -47,188 +42,80 @@
 <select id="direction">
   <option value="en-bg">English → Bulgarian</option>
   <option value="bg-en">Bulgarian → English</option>
-
   <option value="pl-bg">Polish → Bulgarian</option>
   <option value="bg-pl">Bulgarian → Polish</option>
-
   <option value="el-bg">Greek → Bulgarian</option>
   <option value="bg-el">Bulgarian → Greek</option>
 </select>
 
-<button id="talkBtn">🎤 Hold to Talk</button>
+<button id="startBtn">🎤 Tap to Speak</button>
 
 <div class="box">
-  <strong>You said:</strong>
-  <div id="sourceText"></div>
+<b>You said:</b>
+<div id="src"></div>
 </div>
 
 <div class="box">
-  <strong>Translation:</strong>
-  <div id="translatedText"></div>
+<b>Translation:</b>
+<div id="tr"></div>
 </div>
 
 <script>
-const SpeechRecognition =
-  window.SpeechRecognition || window.webkitSpeechRecognition;
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-const talkBtn = document.getElementById("talkBtn");
-const sourceDiv = document.getElementById("sourceText");
-const translatedDiv = document.getElementById("translatedText");
-const directionSelect = document.getElementById("direction");
-
-/* 🌍 ЕЗИКОВА КОНФИГУРАЦИЯ */
 const LANG_MAP = {
-  "en-bg": { speech: "en-US", translate: "en|bg", tts: "bg-BG" },
-  "bg-en": { speech: "bg-BG", translate: "bg|en", tts: "en-US" },
-
-  "pl-bg": { speech: "pl-PL", translate: "pl|bg", tts: "bg-BG" },
-  "bg-pl": { speech: "bg-BG", translate: "bg|pl", tts: "pl-PL" },
-
-  "el-bg": { speech: "el-GR", translate: "el|bg", tts: "bg-BG" },
-  "bg-el": { speech: "bg-BG", translate: "bg|el", tts: "el-GR" }
+  "en-bg": { speech:"en-US", translate:"en|bg", tts:"bg-BG" },
+  "bg-en": { speech:"bg-BG", translate:"bg|en", tts:"en-US" },
+  "pl-bg": { speech:"pl-PL", translate:"pl|bg", tts:"bg-BG" },
+  "bg-pl": { speech:"bg-BG", translate:"bg|pl", tts:"pl-PL" },
+  "el-bg": { speech:"el-GR", translate:"el|bg", tts:"bg-BG" },
+  "bg-el": { speech:"bg-BG", translate:"bg|el", tts:"el-GR" }
 };
 
-let recognition = null;
-let isHolding = false;
-let finalTranscript = "";
+const btn = document.getElementById("startBtn");
+const src = document.getElementById("src");
+const tr = document.getElementById("tr");
+const dir = document.getElementById("direction");
 
-function createRecognition() {
-  const r = new SpeechRecognition();
-  const cfg = LANG_MAP[directionSelect.value];
+btn.addEventListener("click", () => {
+  src.textContent = "";
+  tr.textContent = "🎤 Listening…";
+  speechSynthesis.cancel();
 
-  r.lang = cfg.speech;
-  r.interimResults = true;
+  const cfg = LANG_MAP[dir.value];
+  const rec = new SpeechRecognition();
+  rec.lang = cfg.speech;
+  rec.interimResults = false;
 
-  r.onresult = (event) => {
-    let text = "";
-    for (let i = 0; i < event.results.length; i++) {
-      text += event.results[i][0].transcript;
+  rec.onresult = async e => {
+    const text = e.results[0][0].transcript;
+    src.textContent = text;
+    tr.textContent = "⏳ Translating…";
+
+    try {
+      const res = await fetch(
+        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${cfg.translate}`
+      );
+      const data = await res.json();
+      const translated = data.responseData?.translatedText || data.matches?.[0]?.translation;
+
+      if (!translated) {
+        tr.textContent = "⚠️ Translation unavailable";
+        return;
+      }
+
+      tr.textContent = translated;
+      const utter = new SpeechSynthesisUtterance(translated);
+      utter.lang = cfg.tts;
+      speechSynthesis.speak(utter);
+
+    } catch {
+      tr.textContent = "❌ Translation error";
     }
-    finalTranscript = text;
-    sourceDiv.textContent = text;
   };
 
-  return r;
-}
-
-function startListening() {
-  if (recognition) {
-    recognition.onresult = null;
-    recognition = null;
-  }
-
-  speechSynthesis.cancel();
-  finalTranscript = "";
-  sourceDiv.textContent = "";
-  translatedDiv.textContent = "";
-
-  isHolding = true;
-  recognition = createRecognition();
-  recognition.start();
-}
-
-async function stopListening() {
-  isHolding = false;
-  if (!recognition) return;
-  recognition.stop();
-
-  // ⏳ Изчакваме ASR да върне резултат (важно за BG / EL)
-  await new Promise(resolve => setTimeout(resolve, 300));
-
-  if (!finalTranscript.trim()) {
-    translatedDiv.textContent = "⚠️ No speech detected.";
-    return;
-  }
-
-  const cfg = LANG_MAP[directionSelect.value];
-  translatedDiv.textContent = "⏳ Translating...";
-
-  try {
-    const response = await fetch(
-      "https://api.mymemory.translated.net/get?q=" +
-      encodeURIComponent(finalTranscript) +
-      "&langpair=" + cfg.translate
-    );
-
-    const data = await response.json();
-    let translated = "";
-
-    if (data.responseData?.translatedText) {
-      translated = data.responseData.translatedText;
-    } else if (data.matches?.length) {
-      translated = data.matches[0].translation;
-    }
-
-    if (!translated) {
-      translatedDiv.textContent = "⚠️ Translation not available.";
-      return;
-    }
-
-    translatedDiv.textContent = translated;
-
-    const utter = new SpeechSynthesisUtterance(translated);
-    utter.lang = cfg.tts;
-    utter.rate = 0.9;
-    speechSynthesis.speak(utter);
-
-  } catch {
-    translatedDiv.textContent = "❌ Translation error.";
-  }
-}
-
-
-  const cfg = LANG_MAP[directionSelect.value];
-  translatedDiv.textContent = "⏳ Translating...";
-
-  try {
-    const response = await fetch(
-      "https://api.mymemory.translated.net/get?q=" +
-      encodeURIComponent(finalTranscript) +
-      "&langpair=" + cfg.translate
-    );
-
-    const data = await response.json();
-    let translated = "";
-
-    if (data.responseData?.translatedText) {
-      translated = data.responseData.translatedText;
-    } else if (data.matches?.length) {
-      translated = data.matches[0].translation;
-    }
-
-    if (!translated) {
-      translatedDiv.textContent = "⚠️ Translation not available.";
-      return;
-    }
-
-    translatedDiv.textContent = translated;
-
-    const utter = new SpeechSynthesisUtterance(translated);
-    utter.lang = cfg.tts;
-    utter.rate = 0.9;
-    speechSynthesis.speak(utter);
-
-  } catch {
-    translatedDiv.textContent = "❌ Translation error.";
-  }
-}
-
-/* POINTER EVENTS – Chrome / Android safe */
-talkBtn.addEventListener("pointerdown", () => {
-  talkBtn.classList.add("holding");
-  startListening();
+  rec.start();
 });
-
-talkBtn.addEventListener("pointerup", () => {
-  talkBtn.classList.remove("holding");
-  stopListening();
-});
-
-talkBtn.addEventListener("pointercancel", () => {
-  talkBtn.classList.remove("holding");
-  stopListening();
-});
-
 </script>
 
 </body>
