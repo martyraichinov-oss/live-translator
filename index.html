@@ -47,8 +47,12 @@
 <select id="direction">
   <option value="en-bg">English → Bulgarian</option>
   <option value="bg-en">Bulgarian → English</option>
+
   <option value="pl-bg">Polish → Bulgarian</option>
   <option value="bg-pl">Bulgarian → Polish</option>
+
+  <option value="el-bg">Greek → Bulgarian</option>
+  <option value="bg-el">Bulgarian → Greek</option>
 </select>
 
 <button id="talkBtn">🎤 Hold to Talk</button>
@@ -72,12 +76,16 @@ const sourceDiv = document.getElementById("sourceText");
 const translatedDiv = document.getElementById("translatedText");
 const directionSelect = document.getElementById("direction");
 
-/* 🔤 ЕЗИКОВА КОНФИГУРАЦИЯ */
+/* 🌍 ЕЗИКОВА КОНФИГУРАЦИЯ */
 const LANG_MAP = {
   "en-bg": { speech: "en-US", translate: "en|bg", tts: "bg-BG" },
   "bg-en": { speech: "bg-BG", translate: "bg|en", tts: "en-US" },
+
   "pl-bg": { speech: "pl-PL", translate: "pl|bg", tts: "bg-BG" },
-  "bg-pl": { speech: "bg-BG", translate: "bg|pl", tts: "pl-PL" }
+  "bg-pl": { speech: "bg-BG", translate: "bg|pl", tts: "pl-PL" },
+
+  "el-bg": { speech: "el-GR", translate: "el|bg", tts: "bg-BG" },
+  "bg-el": { speech: "bg-BG", translate: "bg|el", tts: "el-GR" }
 };
 
 let recognition = null;
@@ -100,22 +108,12 @@ function createRecognition() {
     sourceDiv.textContent = text;
   };
 
-  r.onend = () => {
-    // 🔁 ако бутонът още е натиснат – рестартираме
-    if (isHolding) {
-      recognition = createRecognition();
-      recognition.start();
-    }
-  };
-
   return r;
 }
 
 function startListening() {
-  // ⛔ напълно убиваме старото състояние
   if (recognition) {
     recognition.onresult = null;
-    recognition.onend = null;
     recognition = null;
   }
 
@@ -129,10 +127,8 @@ function startListening() {
   recognition.start();
 }
 
-
 async function stopListening() {
   isHolding = false;
-
   if (!recognition) return;
   recognition.stop();
 
@@ -177,51 +173,7 @@ async function stopListening() {
   }
 }
 
-
-  const cfg = LANG_MAP[directionSelect.value];
-  translatedDiv.textContent = "⏳ Translating...";
-
-  try {
-    const response = await fetch(
-      "https://api.mymemory.translated.net/get?q=" +
-      encodeURIComponent(finalTranscript) +
-      "&langpair=" + cfg.translate
-    );
-
-    const data = await response.json();
-
-    let translated = "";
-
-    // ✅ Основен път
-    if (data.responseData && data.responseData.translatedText) {
-      translated = data.responseData.translatedText;
-    }
-
-    // 🔁 Резервен път (MyMemory често го ползва)
-    if (!translated && data.matches && data.matches.length > 0) {
-      translated = data.matches[0].translation;
-    }
-
-    if (!translated) {
-      translatedDiv.textContent = "⚠️ Translation not available.";
-      return;
-    }
-
-    translatedDiv.textContent = translated;
-
-    // 🔊 TTS
-    const utter = new SpeechSynthesisUtterance(translated);
-    utter.lang = cfg.tts;
-    utter.rate = 0.9;
-    speechSynthesis.speak(utter);
-
-  } catch (err) {
-    translatedDiv.textContent = "❌ Translation error.";
-  }
-}
-
-
-/* TOUCH (mobile) */
+/* TOUCH */
 talkBtn.addEventListener("touchstart", e => {
   e.preventDefault();
   talkBtn.classList.add("holding");
@@ -233,7 +185,7 @@ talkBtn.addEventListener("touchend", e => {
   stopListening();
 });
 
-/* MOUSE (desktop fallback) */
+/* MOUSE */
 talkBtn.addEventListener("mousedown", () => {
   talkBtn.classList.add("holding");
   startListening();
