@@ -213,27 +213,22 @@ async function stopListening() {
   }
 }
 
-/* TOUCH */
-talkBtn.addEventListener("touchstart", e => {
-  e.preventDefault();
+/* POINTER EVENTS – Chrome / Android safe */
+talkBtn.addEventListener("pointerdown", () => {
   talkBtn.classList.add("holding");
   startListening();
 });
-talkBtn.addEventListener("touchend", e => {
-  e.preventDefault();
+
+talkBtn.addEventListener("pointerup", () => {
   talkBtn.classList.remove("holding");
   stopListening();
 });
 
-/* MOUSE */
-talkBtn.addEventListener("mousedown", () => {
-  talkBtn.classList.add("holding");
-  startListening();
-});
-talkBtn.addEventListener("mouseup", () => {
+talkBtn.addEventListener("pointercancel", () => {
   talkBtn.classList.remove("holding");
   stopListening();
 });
+
 </script>
 
 </body>
