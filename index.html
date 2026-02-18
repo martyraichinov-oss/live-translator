@@ -112,22 +112,71 @@ function createRecognition() {
 }
 
 function startListening() {
+  // ⛔ напълно убиваме старото състояние
+  if (recognition) {
+    recognition.onresult = null;
+    recognition.onend = null;
+    recognition = null;
+  }
+
   speechSynthesis.cancel();
   finalTranscript = "";
-  isHolding = true;
+  sourceDiv.textContent = "";
+  translatedDiv.textContent = "";
 
+  isHolding = true;
   recognition = createRecognition();
   recognition.start();
 }
 
+
 async function stopListening() {
   isHolding = false;
-  if (recognition) recognition.stop();
+
+  if (!recognition) return;
+  recognition.stop();
 
   if (!finalTranscript.trim()) {
-    translatedDiv.textContent = "❗ No speech detected.";
+    translatedDiv.textContent = "⚠️ No speech detected.";
     return;
   }
+
+  const cfg = LANG_MAP[directionSelect.value];
+  translatedDiv.textContent = "⏳ Translating...";
+
+  try {
+    const response = await fetch(
+      "https://api.mymemory.translated.net/get?q=" +
+      encodeURIComponent(finalTranscript) +
+      "&langpair=" + cfg.translate
+    );
+
+    const data = await response.json();
+    let translated = "";
+
+    if (data.responseData?.translatedText) {
+      translated = data.responseData.translatedText;
+    } else if (data.matches?.length) {
+      translated = data.matches[0].translation;
+    }
+
+    if (!translated) {
+      translatedDiv.textContent = "⚠️ Translation not available.";
+      return;
+    }
+
+    translatedDiv.textContent = translated;
+
+    const utter = new SpeechSynthesisUtterance(translated);
+    utter.lang = cfg.tts;
+    utter.rate = 0.9;
+    speechSynthesis.speak(utter);
+
+  } catch {
+    translatedDiv.textContent = "❌ Translation error.";
+  }
+}
+
 
   const cfg = LANG_MAP[directionSelect.value];
   translatedDiv.textContent = "⏳ Translating...";
