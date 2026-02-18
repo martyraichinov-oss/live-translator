@@ -13,12 +13,7 @@
       margin: 0;
       padding: 20px;
     }
-
-    h2 {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-
+    h2 { text-align: center; }
     select, button {
       width: 100%;
       padding: 16px;
@@ -27,22 +22,18 @@
       border-radius: 14px;
       border: none;
     }
-
     select {
       background: #020617;
       color: #e5e7eb;
     }
-
     button {
       background: #2563eb;
       color: white;
       font-weight: bold;
     }
-
     button.holding {
       background: #1e40af;
     }
-
     .box {
       margin-top: 20px;
       padding: 15px;
@@ -84,21 +75,17 @@ const sourceDiv = document.getElementById("sourceText");
 const translatedDiv = document.getElementById("translatedText");
 const directionSelect = document.getElementById("direction");
 
-let recognition;
+let recognition = null;
+let isHolding = false;
 let finalTranscript = "";
 
-function startListening() {
-  speechSynthesis.cancel();
-  finalTranscript = "";
-
-  recognition = new SpeechRecognition();
-
+function createRecognition() {
+  const r = new SpeechRecognition();
   const direction = directionSelect.value;
-  const fromLang = direction === "en-bg" ? "en-US" : "bg-BG";
-  recognition.lang = fromLang;
-  recognition.interimResults = true;
+  r.lang = direction === "en-bg" ? "en-US" : "bg-BG";
+  r.interimResults = true;
 
-  recognition.onresult = (event) => {
+  r.onresult = (event) => {
     let text = "";
     for (let i = 0; i < event.results.length; i++) {
       text += event.results[i][0].transcript;
@@ -107,18 +94,35 @@ function startListening() {
     sourceDiv.textContent = text;
   };
 
+  r.onend = () => {
+    // 🔁 ако бутонът още е натиснат – рестартираме
+    if (isHolding) {
+      recognition = createRecognition();
+      recognition.start();
+    }
+  };
+
+  return r;
+}
+
+function startListening() {
+  speechSynthesis.cancel();
+  finalTranscript = "";
+  isHolding = true;
+
+  recognition = createRecognition();
   recognition.start();
 }
 
 async function stopListening() {
-  if (!recognition) return;
-  recognition.stop();
+  isHolding = false;
+  if (recognition) recognition.stop();
+
+  if (!finalTranscript.trim()) return;
 
   const direction = directionSelect.value;
   const langPair = direction === "en-bg" ? "en|bg" : "bg|en";
   const ttsLang  = direction === "en-bg" ? "bg-BG" : "en-US";
-
-  if (!finalTranscript.trim()) return;
 
   try {
     const response = await fetch(
@@ -126,7 +130,6 @@ async function stopListening() {
       encodeURIComponent(finalTranscript) +
       "&langpair=" + langPair
     );
-
     const data = await response.json();
     const translated = data.responseData.translatedText;
     translatedDiv.textContent = translated;
@@ -135,31 +138,28 @@ async function stopListening() {
     utter.lang = ttsLang;
     utter.rate = 0.9;
     speechSynthesis.speak(utter);
-
   } catch {
     translatedDiv.textContent = "Translation error.";
   }
 }
 
-/* TOUCH (mobile) */
-talkBtn.addEventListener("touchstart", (e) => {
+/* TOUCH */
+talkBtn.addEventListener("touchstart", e => {
   e.preventDefault();
   talkBtn.classList.add("holding");
   startListening();
 });
-
-talkBtn.addEventListener("touchend", (e) => {
+talkBtn.addEventListener("touchend", e => {
   e.preventDefault();
   talkBtn.classList.remove("holding");
   stopListening();
 });
 
-/* MOUSE (desktop fallback) */
+/* MOUSE */
 talkBtn.addEventListener("mousedown", () => {
   talkBtn.classList.add("holding");
   startListening();
 });
-
 talkBtn.addEventListener("mouseup", () => {
   talkBtn.classList.remove("holding");
   stopListening();
