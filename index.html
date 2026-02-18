@@ -124,9 +124,13 @@ async function stopListening() {
   isHolding = false;
   if (recognition) recognition.stop();
 
-  if (!finalTranscript.trim()) return;
+  if (!finalTranscript.trim()) {
+    translatedDiv.textContent = "❗ No speech detected.";
+    return;
+  }
 
   const cfg = LANG_MAP[directionSelect.value];
+  translatedDiv.textContent = "⏳ Translating...";
 
   try {
     const response = await fetch(
@@ -134,19 +138,39 @@ async function stopListening() {
       encodeURIComponent(finalTranscript) +
       "&langpair=" + cfg.translate
     );
+
     const data = await response.json();
-    const translated = data.responseData.translatedText;
+
+    let translated = "";
+
+    // ✅ Основен път
+    if (data.responseData && data.responseData.translatedText) {
+      translated = data.responseData.translatedText;
+    }
+
+    // 🔁 Резервен път (MyMemory често го ползва)
+    if (!translated && data.matches && data.matches.length > 0) {
+      translated = data.matches[0].translation;
+    }
+
+    if (!translated) {
+      translatedDiv.textContent = "⚠️ Translation not available.";
+      return;
+    }
+
     translatedDiv.textContent = translated;
 
+    // 🔊 TTS
     const utter = new SpeechSynthesisUtterance(translated);
     utter.lang = cfg.tts;
     utter.rate = 0.9;
     speechSynthesis.speak(utter);
 
-  } catch {
-    translatedDiv.textContent = "Translation error.";
+  } catch (err) {
+    translatedDiv.textContent = "❌ Translation error.";
   }
 }
+
 
 /* TOUCH (mobile) */
 talkBtn.addEventListener("touchstart", e => {
