@@ -87,32 +87,44 @@ btn.addEventListener("click", () => {
   rec.lang = cfg.speech;
   rec.interimResults = false;
 
-  rec.onresult = async e => {
-    const text = e.results[0][0].transcript;
-    src.textContent = text;
-    tr.textContent = "⏳ Translating…";
+rec.onresult = async e => {
+  const text = e.results[0][0].transcript;
+  src.textContent = text;
+  tr.textContent = "⏳ Translating...";
 
-    try {
-      const res = await fetch(
-        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${cfg.translate}`
-      );
-      const data = await res.json();
-      const translated = data.responseData?.translatedText || data.matches?.[0]?.translation;
+  // 🛑 ФОРСИРАНО СПИРАНЕ НА СЛУШАНЕТО
+  try { rec.stop(); } catch {}
 
-      if (!translated) {
-        tr.textContent = "⚠️ Translation unavailable";
-        return;
-      }
+  try {
+    const res = await fetch(
+      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${cfg.translate}`
+    );
+    const data = await res.json();
+    const translated =
+      data.responseData?.translatedText ||
+      data.matches?.[0]?.translation;
 
-      tr.textContent = translated;
-      const utter = new SpeechSynthesisUtterance(translated);
-      utter.lang = cfg.tts;
-      speechSynthesis.speak(utter);
-
-    } catch {
-      tr.textContent = "❌ Translation error";
+    if (!translated) {
+      tr.textContent = "⚠️ Translation unavailable";
+      return;
     }
-  };
+
+    tr.textContent = translated;
+
+    const utter = new SpeechSynthesisUtterance(translated);
+    utter.lang = cfg.tts;
+    speechSynthesis.speak(utter);
+
+  } catch {
+    tr.textContent = "❌ Translation error";
+  }
+
+  // 🧹 ГАРАНТИРАН КРАЙ НА AUDIO PIPELINE
+  setTimeout(() => {
+    try { rec.stop(); } catch {}
+  }, 300);
+};
+
 
   rec.start();
 });
